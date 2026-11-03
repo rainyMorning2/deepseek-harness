@@ -579,6 +579,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections.',
   },
   {
+    key: 'workspacePathPolicy',
+    pkg: 'workspace',
+    title: 'Workspace directory admission',
+    mode: 'seam',
+    consumers: ['workspace', 'api-session-controller'],
+    note: 'Optional deployment providers authorize canonical directories, filter stored Workspace paths, and supply the initial directory. Providers may be supplied by external plugins.',
+  },
+  {
     key: 'sessionQuery',
     pkg: 'session-query',
     title: 'Session reads, traces, filters, and search',

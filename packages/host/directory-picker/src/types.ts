@@ -9,6 +9,8 @@
 
 /** One directory row: a listing child or a breadcrumb ancestor. */
 export interface DirectoryEntry {
+  /** False for navigation-only ancestors outside authorized Workspace roots. Omission permits selection. */
+  selectable?: boolean
   /** Base name shown in a browser row (a root crumb carries its full path). */
   name: string
   /** Absolute host path — clients never join path segments themselves. */
@@ -19,6 +21,8 @@ export interface DirectoryEntry {
 
 /** One directory level plus its ancestry, as a browse backend reports it. */
 export interface DirectoryListing {
+  /** False when this level permits navigation only, without selection or child creation. Omission permits both. */
+  selectable?: boolean
   /** Absolute path of the listed directory. */
   path: string
   /** The host account's home directory (breadcrumb "Home" rooting). */

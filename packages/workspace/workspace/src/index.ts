@@ -26,6 +26,8 @@ export type {
 export { workspaceDomainState, workspaceRecord, workspaceDomainSpec } from './spec.ts'
 export type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 export { realpathNormalize } from './paths.ts'
+export { WorkspacePathPolicy, WorkspacePathDeniedError } from './path-policy.ts'
+import type {} from './path-policy.ts'
 
 /** Identifies one workspace record (see `src/types.ts` for the brand rationale). */
 export type WorkspaceId = WorkspaceIdBrand
@@ -236,7 +238,7 @@ export class WorkspaceRegistry extends Service {
   // drop the parameter with its @param clause and the `create(path, title?)`
   // lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
-    const canonical = await realpathNormalize(path)
+    const canonical = await this.resolveAllowedPath(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
     }
@@ -258,16 +260,17 @@ export class WorkspaceRegistry extends Service {
   initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined> {
     return this.enqueueOperation(async () => {
       const state = this.requireState()
-      if (state.defaultWorkspaceId !== undefined) return this.entities.get(state.defaultWorkspaceId)
+      if (state.defaultWorkspaceId !== undefined) return this.get(state.defaultWorkspaceId)
       const sessions = this.ctx.get('sessions')
       if (sessions === undefined) throw new Error('default Workspace initialization requires the Session store')
       if (state.workspaceIds.length > 0 || state.archivedSessionIds.length > 0
         || sessions.list().length > 0 || (await this.listStoredHeaders()).length > 0) return undefined
 
-      const path = await resolveDirectory()
+      const policy = this.ctx.get('workspacePathPolicy')
+      const path = policy === undefined ? await resolveDirectory() : await policy.defaultDirectory()
       if (!fullyQualifiedWorkspacePath(path)) throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
       await mkdir(path, { recursive: true })
-      const canonical = await realpathNormalize(path)
+      const canonical = await this.resolveAllowedPath(path)
       // A Session can start outside the registry queue while directory preparation awaits I/O.
       if ((await this.listStoredHeaders()).length > 0 || sessions.list().length > 0) return undefined
       return this.createCanonical(canonical, defaultWorkspaceTitle(path), true)
@@ -280,7 +283,9 @@ export class WorkspaceRegistry extends Service {
    * @returns the workspace, or `undefined` when unknown.
    */
   get(id: WorkspaceId): Workspace | undefined {
-    return this.entities.get(id)
+    const entity = this.entities.get(id)
+    if (entity !== undefined && this.ctx.get('workspacePathPolicy')?.allows(entity.path) === false) return undefined
+    return entity
   }
 
   /**
@@ -296,7 +301,7 @@ export class WorkspaceRegistry extends Service {
         throw new Error(`workspace registry order references missing workspace '${id}'`)
       }
       return entity
-    })
+    }).filter(entity => this.ctx.get('workspacePathPolicy')?.allows(entity.path) !== false)
   }
 
   /**
@@ -500,11 +505,16 @@ export class WorkspaceRegistry extends Service {
    * @returns the workspace owning the canonical path, when one exists.
    */
   async resolveByPath(path: string): Promise<Workspace | undefined> {
-    const canonical = await realpathNormalize(path)
+    const canonical = await this.resolveAllowedPath(path)
     for (const entity of this.entities.values()) {
       if (entity.path === canonical) return entity
     }
     return undefined
+  }
+
+  private async resolveAllowedPath(path: string): Promise<string> {
+    const policy = this.ctx.get('workspacePathPolicy')
+    return policy === undefined ? await realpathNormalize(path) : await policy.resolve(path)
   }
 
   private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceEntity> {

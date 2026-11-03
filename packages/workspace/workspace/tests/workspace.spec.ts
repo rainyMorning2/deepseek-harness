@@ -18,6 +18,8 @@ import WorkspaceRegistry, {
   type workspaceDomainState,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
+  WorkspacePathPolicy,
+  WorkspacePathDeniedError,
 } from '../src/index.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from '../src/index.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath } from '../src/paths.ts'
@@ -40,6 +42,41 @@ interface HarnessOptions {
   sessionStore?: boolean
   backend?: StorageBackend
 }
+
+class TestPathPolicy extends WorkspacePathPolicy {
+  constructor(ctx: Context, private readonly root: string) { super(ctx) }
+  allows(path: string): boolean { return path === this.root || path.startsWith(`${this.root}/`) }
+  async resolve(path: string): Promise<string> {
+    const canonical = await realpath(path)
+    if (!this.allows(canonical)) throw new WorkspacePathDeniedError(path)
+    return canonical
+  }
+  async defaultDirectory(): Promise<string> { return this.root }
+}
+
+describe('Workspace directory admission', () => {
+  it('restricts creation and existing registrations while retaining authorized descendants', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'dsh-grants-'))
+    const allowed = join(base, 'allowed')
+    const denied = join(base, 'denied')
+    await mkdir(join(allowed, 'nested'), { recursive: true })
+    await mkdir(denied)
+    const h = await harness()
+    try {
+      const old = await h.registry.create(denied)
+      new TestPathPolicy(h.ctx, await realpath(allowed))
+      expect(h.registry.get(old.id)).toBeUndefined()
+      expect(h.registry.list()).toEqual([])
+      await expect(h.registry.create(denied)).rejects.toBeInstanceOf(WorkspacePathDeniedError)
+      await expect(h.registry.resolveByPath(denied)).rejects.toBeInstanceOf(WorkspacePathDeniedError)
+      const nested = await h.registry.create(join(allowed, 'nested'))
+      expect(h.registry.list()).toEqual([nested])
+    } finally {
+      await h.ctx.fiber.dispose()
+      await rm(base, { recursive: true, force: true })
+    }
+  })
+})
 
 /** Boot the real storage/domain/registry composition over controllable header-only peers. */
 async function harness(options: HarnessOptions = {}) {

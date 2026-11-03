@@ -29,6 +29,8 @@ Mount this plugin alongside `ui-workspace` and the host backend [`dsh-host-direc
 
 ### Navigating and creating
 
+The dialog honors the Host's optional `selectable` fields: navigation-only levels and rows disable Open and New folder. Authorized directories retain both actions. See the [directory-picker service](../../host/directory-picker/README.md) for provider responsibilities.
+
 Step through folders, edit the path directly, or filter the last pane by prefix; a Host-flagged hidden entry stays hidden until the footer toggle reveals it. **New folder** opens a nested create dialog targeting the selected folder and selects what it creates; **Open** adopts the selected folder, falling back to the listed level. Confirming a directory is the picked path; dismissing the dialog is the cancellation.
 
 -----

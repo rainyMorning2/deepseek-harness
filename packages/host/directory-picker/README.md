@@ -41,6 +41,8 @@ The [native backend](../directory-picker-native/README.md) is the right choice w
 
 -----
 
+Browse providers may mark a listing or entry with `selectable: false` for navigation-only ancestors. The browser disables Open and New folder there, while authorized directories keep both operations. Missing `selectable` preserves existing behavior. A restricted provider must also reject unauthorized list and create requests; UI state is not authorization.
+
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 

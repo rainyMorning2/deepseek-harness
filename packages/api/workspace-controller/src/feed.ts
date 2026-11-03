@@ -103,9 +103,13 @@ export class WorkspaceFeed {
     if (change.table === '') {
       if (change.operation !== 'put') return
       const state = workspaceDomainState.parse(change.value)
-      const nextOrder = state.workspaceIds.map(String)
+      const policy = this.ctx.get('workspacePathPolicy')
+      const visibleIds = policy === undefined
+        ? state.workspaceIds
+        : state.workspaceIds.filter(id => this.ctx.workspaceRegistry.get(id) !== undefined)
+      const nextOrder = visibleIds.map(String)
       const orderChanged = !sameStrings(this.order, nextOrder)
-      for (const id of state.workspaceIds) {
+      for (const id of visibleIds) {
         if (this.knownIds.has(id)) continue
         const workspace = this.ctx.workspaceRegistry.get(id)
         if (workspace === undefined) {
@@ -115,7 +119,7 @@ export class WorkspaceFeed {
         this.publish({ type: 'upsert', workspace: workspaceView(workspace) })
       }
       this.order = nextOrder
-      if (orderChanged) this.publish({ type: 'order', workspaceIds: [...state.workspaceIds] })
+      if (orderChanged) this.publish({ type: 'order', workspaceIds: [...visibleIds] })
       const nextArchived = state.archivedSessionIds.map(String)
       if (!sameStrings(this.archived, nextArchived)) {
         this.archived = nextArchived

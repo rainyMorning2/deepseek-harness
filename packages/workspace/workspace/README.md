@@ -50,6 +50,8 @@ With these rows mounted, creating a project shows up in the list immediately and
 
 ### Creating and ordering projects
 
+An optional `WorkspacePathPolicy` provider (`ctx.workspacePathPolicy`) authorizes directory creation and lookup, filters registered Workspaces returned by `get()` and `list()`, and supplies the first-use directory. `resolve(path)` must return an authorized canonical existing directory; `allows(path)` checks canonical stored paths synchronously. Without a provider, the registry retains unrestricted Host directory selection. Session Controller also applies this policy to explicit and default `cwd` values before creating a Session. This process-wide path policy does not authenticate users or authorize access to Session history.
+
 Create a project from any fully qualified directory that exists: filesystem roots such as `C:\` and ordinary directories are valid. Relative paths, Windows drive-relative paths such as `C:work`, missing paths, and files are rejected without creating a project; creating a project for a directory that already has one returns the existing project unchanged. Rename a project at any time, and move it to any position in the list:
 
 ```text

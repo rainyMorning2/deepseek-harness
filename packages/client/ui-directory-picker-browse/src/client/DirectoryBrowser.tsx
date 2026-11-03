@@ -601,6 +601,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
 
   /** The folder a create or Open acts on: the selection, else the listed level. */
   const targetPath = selected?.path ?? parent?.path ?? null
+  const targetSelectable = (selected ?? parent)?.selectable !== false
   const targetName = selected?.name
     ?? (parent === null ? '' : (displayCrumbs(parent, t('browser.home')).at(-1)?.name ?? parent.path))
 
@@ -965,7 +966,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           <Button
             variant="outline"
             icon={<IconPlusOutlineRegular size={14} />}
-            disabled={parent === null || loading || parentInert || draftPending}
+            disabled={parent === null || !targetSelectable || loading || parentInert || draftPending}
             onClick={() => {
               setFolderDraft('')
               setCreateError(null)
@@ -995,7 +996,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
           <Button
             variant="primary"
             className={clsx(css.footerAction)}
-            disabled={targetPath === null || loading || parentInert || draftPending}
+            disabled={targetPath === null || !targetSelectable || loading || parentInert || draftPending}
             /* v8 ignore next -- narrowing guard: Open disables while no target exists. */
             onClick={() => { if (targetPath !== null) onOpen(targetPath) }}
           >

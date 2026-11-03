@@ -4596,6 +4596,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'workspacePathPolicy',
+    summary: 'A deployment provider authorizes paths independently of filesystem execution.',
+    description: 'A deployment provider authorizes paths independently of filesystem execution.',
+    methods: [
+      {
+        signature: 'abstract resolve(path: string): Promise<string>',
+        description: 'Authorize an existing directory and resolve its canonical Host path.',
+        parameters: [{ name: 'path', description: 'Untrusted absolute directory spelling.' }],
+        returns: 'Canonical directory; rejects before use when unauthorized or unavailable.',
+      },
+      {
+        signature: 'abstract allows(path: string): boolean',
+        description: 'Check a canonical stored path without filesystem I/O.',
+        parameters: [{ name: 'path', description: 'Canonical Workspace path from the registry.' }],
+        returns: 'Whether the deployment permits this path.',
+      },
+      {
+        signature: 'abstract defaultDirectory(): Promise<string>',
+        description: 'Resolve the deployment\'s initial directory.',
+        parameters: [],
+        returns: 'An authorized existing directory for first-use initialization.',
+      },
+    ],
+  },
+  {
     key: 'workspaceRegistry',
     summary: 'Durable workspace registry.',
     description: 'Durable workspace registry. Startup waits for `sessionPersistence`, builds one canonical-cwd header index, and completes the one-time history bootstrap before the service becomes active. The persistence dependency is mandatory so an unavailable peer can never be mistaken for an empty history and commit the initialized marker.',
@@ -6213,11 +6238,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DirectoryEntry',
-    declaration: 'export interface DirectoryEntry {\n    name: string;\n    path: string;\n    hidden: boolean;\n}',
+    declaration: 'export interface DirectoryEntry {\n    selectable?: boolean;\n    name: string;\n    path: string;\n    hidden: boolean;\n}',
   },
   {
     name: 'DirectoryListing',
-    declaration: 'export interface DirectoryListing {\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
+    declaration: 'export interface DirectoryListing {\n    selectable?: boolean;\n    path: string;\n    home: string;\n    crumbs: DirectoryEntry[];\n    entries: DirectoryEntry[];\n    truncated: boolean;\n}',
   },
   {
     name: 'DirectoryPickerBrowseCapability',

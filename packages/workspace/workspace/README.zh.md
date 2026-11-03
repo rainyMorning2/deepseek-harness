@@ -50,6 +50,8 @@ kind: "package-reference"
 
 ### 创建与排序项目
 
+可选的 `WorkspacePathPolicy` 提供方（`ctx.workspacePathPolicy`）负责目录创建和查找的授权，过滤 `get()` 与 `list()` 返回的已注册 Workspace，并提供首次使用的目录。`resolve(path)` 必须返回已授权且存在的规范目录路径；`allows(path)` 同步检查持久化的规范路径。未配置提供方时，注册表保持不限制宿主机目录选择的行为。Session Controller 也会在创建 Session 前用此策略检查显式及默认的 `cwd`。这个进程级路径策略不负责用户登录或 Session 历史访问授权。
+
 从任何已存在的绝对目录路径创建项目：`C:\` 等文件系统根目录和普通目录都有效。相对路径、`C:work` 等 Windows 盘符相对路径、不存在的路径和文件都会被拒绝，且不会创建项目；为已有项目的目录再次创建会原样返回现有项目。你可以随时重命名项目，并把它移动到列表中的任意位置：
 
 ```text

@@ -461,6 +461,36 @@ Host Remote file reads and workspace directory observations over the composed fi
 
 Source: [`packages/api/workspace-files/src/index.ts`](../../packages/api/workspace-files/src/index.ts)
 
+<a id="ctxworkspacepathpolicy--workspacepathpolicy-abstract-seam"></a>
+
+### `ctx.workspacePathPolicy` — `WorkspacePathPolicy` (abstract seam)
+
+A deployment provider authorizes paths independently of filesystem execution.
+
+```ts cordis-catalog
+/**
+ * Authorize an existing directory and resolve its canonical Host path.
+ * @param path - Untrusted absolute directory spelling.
+ * @returns Canonical directory; rejects before use when unauthorized or unavailable.
+ */
+abstract resolve(path: string): Promise<string>
+
+/**
+ * Check a canonical stored path without filesystem I/O.
+ * @param path - Canonical Workspace path from the registry.
+ * @returns Whether the deployment permits this path.
+ */
+abstract allows(path: string): boolean
+
+/**
+ * Resolve the deployment's initial directory.
+ * @returns An authorized existing directory for first-use initialization.
+ */
+abstract defaultDirectory(): Promise<string>
+```
+
+Source: [`packages/workspace/workspace/src/path-policy.ts`](../../packages/workspace/workspace/src/path-policy.ts)
+
 <a id="ctxworkspaceregistry--workspaceregistry"></a>
 
 ### `ctx.workspaceRegistry` — `WorkspaceRegistry`

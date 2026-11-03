@@ -23,6 +23,7 @@ import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
+import { WorkspacePathDeniedError } from '@deepseek-ai/dsh-workspace'
 import {
   ApiSessionAgentController,
   ApiSessionCwdConflict,
@@ -113,7 +114,18 @@ export class SessionCommandController {
         })
       }
     }
-    const cwd = workspace?.path ?? request.cwd ?? this.defaultCwd
+    const policy = this.ctx.get('workspacePathPolicy')
+    let cwd: string
+    try {
+      const requestedCwd = workspace?.path ?? request.cwd
+        ?? (policy === undefined ? this.defaultCwd : await policy.defaultDirectory())
+      cwd = policy === undefined ? requestedCwd : await policy.resolve(requestedCwd)
+    } catch (error) {
+      if (error instanceof WorkspacePathDeniedError) {
+        throw new RemoteError('gateway/bad-request', error.message, {}, { cause: error })
+      }
+      throw error
+    }
     let created: ApiSessionCreated
     try {
       created = await this.agents.createSession({

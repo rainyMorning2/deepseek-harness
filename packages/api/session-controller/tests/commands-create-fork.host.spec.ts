@@ -1,4 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
+import { WorkspacePathPolicy, WorkspacePathDeniedError } from '@deepseek-ai/dsh-workspace'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Agent, AgentHandle, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
@@ -59,6 +60,29 @@ async function baseContext(): Promise<Context> {
 }
 
 describe('Session creation failures', () => {
+  it('applies deployment admission to direct cwd and omitted cwd before creating a Session', async () => {
+    const ctx = await baseContext()
+    class Policy extends WorkspacePathPolicy {
+      allows(path: string): boolean { return path === '/allowed' }
+      async resolve(path: string): Promise<string> {
+        if (!this.allows(path)) throw new WorkspacePathDeniedError(path)
+        return path
+      }
+      async defaultDirectory(): Promise<string> { return '/allowed' }
+    }
+    new Policy(ctx)
+    ctx.provide('workspaceRegistry', { get: () => undefined, list: () => [], archivedSessionIds: [] } as never)
+    const createSession = vi.fn(publishedSession(ctx, SessionId('admitted-session')))
+    const controller = new SessionCommandController(ctx, controllerAgents(ctx, { createSession }), '/host-default')
+    try {
+      await expectFailure(controller.create({ cwd: '/denied' }), 'gateway/bad-request')
+      expect(createSession).not.toHaveBeenCalled()
+      await controller.create({})
+      expect(createSession.mock.calls[0]?.[0].cwd).toBe('/allowed')
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
   it('creates in the default cwd without a named identity when no explicit target is supplied', async () => {
     const ctx = await baseContext()
     ctx.provide('workspaceRegistry', { get: () => undefined, list: () => [], archivedSessionIds: [] } as never)

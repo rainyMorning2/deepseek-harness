@@ -115,6 +115,21 @@ function rowButton(item: HTMLElement): HTMLButtonElement {
 }
 
 describe('DirectoryBrowser', () => {
+  it('allows browsing a navigation-only parent and enables actions inside its authorized child', async () => {
+    const b = mount({ listDirectory: async (path) => {
+      const listing = listingFor(path)
+      return { ...listing, selectable: listing.path !== HOME,
+        entries: listing.entries.map(entry => ({ ...entry, selectable: entry.path === DOCS })) }
+    } })
+    await screen.findByText('Documents')
+    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.open' }).disabled).toBe(true))
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.newFolder' }).disabled).toBe(true)
+    fireEvent.click(screen.getByText('Documents'))
+    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.open' }).disabled).toBe(false))
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'browser.newFolder' }).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'browser.open' }))
+    expect(b.onOpen).toHaveBeenCalledWith(DOCS)
+  })
   it('renders nothing and launches no listing while initially closed', () => {
     const b = mount({ open: false })
     expect(screen.queryByRole('dialog')).toBeNull()
