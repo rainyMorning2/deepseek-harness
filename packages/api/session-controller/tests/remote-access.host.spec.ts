@@ -1,3 +1,4 @@
+import type { DeploymentUserId } from '@deepseek-ai/dsh-client-connection'
 /**
  * Session Controller under non-owner callers: the Session resource kind it
  * registers and its default resolver, which supplies the identities of
@@ -249,7 +250,7 @@ describe('Session Controller access', () => {
     await Promise.all([guest.return?.(), owner.return?.()])
   })
 
-  it('records a non-owner caller on the prompt source and leaves owner sources unchanged', async () => {
+  it.each([GUEST, { kind: 'deployment-user', userId: 'alice' as DeploymentUserId } satisfies Principal])('records a non-owner caller on the prompt source and leaves owner sources unchanged: $kind', async (caller) => {
     const { shared, as } = await harness()
     const signal = new AbortController().signal
     const prompt = (principal: Principal, requestId: string) => as(principal, 'prompt').sessionController.prompt({
@@ -258,13 +259,13 @@ describe('Session Controller access', () => {
       mode: 'queue',
       content: [{ type: 'text', text: `from ${principal.kind}` }],
     }, signal)
-    await expect(prompt(GUEST, 'guest-1')).resolves.toEqual({ accepted: true })
+    await expect(prompt(caller, 'guest-1')).resolves.toEqual({ accepted: true })
     await expect(prompt(OWNER, 'owner-1')).resolves.toEqual({ accepted: true })
     // The durable Inbox splice records each accepted message with its source.
     const logged = shared.session.snapshotEvents()
       .flatMap(event => event.type === 'agent/inbox/spliced' ? event.data.inserted.map(item => item.source) : [])
     expect(logged).toEqual([
-      { kind: 'user', rpcId: 'guest-1', principal: GUEST },
+      { kind: 'user', rpcId: 'guest-1', principal: caller },
       { kind: 'user', rpcId: 'owner-1' },
     ])
   })

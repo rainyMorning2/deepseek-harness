@@ -122,6 +122,12 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 Host `ctx.connection` members consumed by transport-independent adapters.
 
 ```ts cordis-catalog
+/** Register the sole identity provider when configured for provider authentication.
+ * @param provider - deployment credential verifier and login redirect.
+ * @returns disposer; removal keeps authentication closed rather than restoring owner access.
+ */
+registerBrowserIdentity(provider: BrowserIdentityProvider): () => Promise<void>
+
 /**
  * Compose exact Fetch routes and the shared-channel RPC interceptor.
  * @param channel - shared channel mounted by Connection.

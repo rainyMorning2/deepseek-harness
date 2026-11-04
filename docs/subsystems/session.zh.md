@@ -889,7 +889,7 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
  * @param request - optional blank Session to reuse, location, and Agent preset.
  * @returns the created or reused Session identity and its preset when configured.
  */
-@Remote('create') create(request: SessionCreateRequest): Promise<SessionCreateValue>
+@Remote('create') async create(request: SessionCreateRequest): Promise<SessionCreateValue>
 
 /**
  * Select one Session-local model after explicitly resuming the Session; save the default in the background.

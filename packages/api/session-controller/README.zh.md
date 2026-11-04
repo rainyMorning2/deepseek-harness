@@ -121,6 +121,8 @@ Blockquote 作为普通 prompt 文本传递，不携带 quote 元数据。本地
 
 无直接影响；模型请求仍由 Agent 和 LLM（大语言模型）包拥有。
 
+未指定Workspace标识的Session创建，在委托命令辅助对象前通过调用方Context解析可选WorkspacePathPolicy，保留按用户区分的默认目录与路径授权；Workspace及复用Session标识仍须通过各自的Gateway资源授权。
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>

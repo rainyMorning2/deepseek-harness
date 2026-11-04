@@ -962,3 +962,48 @@ describe('connection node half over a real HTTP server', () => {
     }
   })
 })
+
+
+describe('deployment browser identity', () => {
+  it('fails closed before registration and after disposal, rejecting launch-token owner credentials', async () => {
+    const fixture = await mounted({ browserAuthentication: 'provider' })
+    try {
+      const { connection } = fixture
+      const request = { headers: { host: '127.0.0.1', cookie: 'account=a' } }
+      expect(connection.admit(request)).toEqual({ rejection: 401 })
+      expect(connection.authenticatedUrl('http://127.0.0.1/')).toBe('http://127.0.0.1/')
+      const a = connection.createPeer({ principal: { kind: 'owner' } })
+      const b = connection.createPeer({ principal: { kind: 'owner' } })
+      const remove = connection.registerBrowserIdentity({
+        authenticate: (req) => {
+          const cookie = req.headers instanceof Headers ? req.headers.get('cookie') : req.headers.cookie
+          return cookie === 'account=a' ? a : cookie === 'account=b' ? b : undefined
+        },
+        unauthorized: (_req, response) => { response.writeHead(303, { location: '/auth/login' }); response.end() },
+      })
+      expect(connection.admit(request)).toEqual({ peer: a })
+      expect(connection.admit({ headers: { host: '127.0.0.1', cookie: 'account=b' } })).toEqual({ peer: b })
+      expect(connection.admitConnection(request)).toMatchObject({ peer: a })
+      const redirect = fakeResponse()
+      expect(connection.authorizeIndex(fakeRequest({ host: '127.0.0.1' }, '/'), redirect.response)).toBe(false)
+      expect(redirect.state.status).toBe(303)
+      const connect = fakeResponse()
+      const connectRoute = fixture.routes.find(route => route.path === '/connect')
+      if (connectRoute === undefined) throw new Error('Missing connect route')
+      await connectRoute.handler(fakeRequest({ host: '127.0.0.1' }, '/connect?token=ignored'), connect.response)
+      expect(connect.state.status).toBe(403)
+      expect(() => connection.registerBrowserIdentity({ authenticate: () => a, unauthorized: () => {} })).toThrow()
+      await a.dispose()
+      expect(connection.admit(request)).toEqual({ rejection: 401 })
+      await remove()
+      expect(connection.admit({ headers: { host: '127.0.0.1', cookie: 'account=b' } })).toEqual({ rejection: 401 })
+    } finally { await fixture.dispose() }
+  })
+
+  it('refuses identity providers in the default built-in deployment', async () => {
+    const fixture = await mounted()
+    try {
+      expect(() => fixture.connection.registerBrowserIdentity({ authenticate: () => undefined, unauthorized: () => {} })).toThrow()
+    } finally { await fixture.dispose() }
+  })
+})

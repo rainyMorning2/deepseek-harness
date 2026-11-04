@@ -98,6 +98,8 @@ kind: "package-reference"
 
 无；该包既不组装也不发送提供方请求。
 
+已认证HTTP首页使用该请求获准的Peer渲染，包括部署身份提供方的非owner Peer，不会将配置用户替换为共享owner Peer。凭证在首页渲染前失效时拒绝该次渲染。
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>

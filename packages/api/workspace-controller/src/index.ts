@@ -2,7 +2,7 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { WorkspaceCommands } from './commands.ts'
@@ -88,7 +88,9 @@ export class WorkspaceController extends TypertRemoteService {
    * @returns the Workspace and whether this call created it.
    */
   @Remote('create')
-  create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+  async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue> {
+    const policy = this.ctx.get('workspacePathPolicy')
+    if (policy !== undefined) return this.commands.create({ ...request, path: await policy.resolve(request.path) })
     return this.commands.create(request)
   }
 
@@ -102,6 +104,11 @@ export class WorkspaceController extends TypertRemoteService {
    */
   @Remote('initializeDefault')
   async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
+    const policy = this.ctx.get('workspacePathPolicy')
+    if (policy !== undefined && principalOf(this.ctx.invocation) !== undefined) {
+      const workspace = await this.ctx.workspaceRegistry.create(await policy.defaultDirectory())
+      return { workspace: workspaceView(workspace) }
+    }
     const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
       const timeout = AbortSignal.timeout(this.config.documentsLookupTimeoutMs)
       return await defaultWorkspaceDirectory(

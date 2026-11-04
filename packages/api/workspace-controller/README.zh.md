@@ -57,6 +57,8 @@ Documents 查询占用注册表变更队列，因此其他 Workspace 变更（�
 
 无直接影响；Workspace 变更不会改变模型请求。
 
+当非owner调用方配置WorkspacePathPolicy时，默认初始化独立于全局首次使用标记，为该调用方创建或复用获准的默认目录。显式路径创建在委托命令队列前通过调用Context解析路径策略；资源权限仍由Gateway检查。
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>

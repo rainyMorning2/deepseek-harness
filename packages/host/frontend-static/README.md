@@ -98,6 +98,8 @@ None, as the SPA dist server answers browser asset requests and registers nothin
 
 None; this package neither assembles nor sends a provider request.
 
+An authenticated HTTP index renders with the Peer admitted for that request, including a deployment identity provider's non-owner Peer. It never substitutes the shared owner Peer for a configured user. A credential that expires before index rendering is refused.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>

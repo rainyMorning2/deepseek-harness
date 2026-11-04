@@ -160,8 +160,12 @@ export function apply(ctx: Context, config: Config): void {
       // The browser authentication admits the owner's shared browser Peer. The
       // base goes in after all index transforms, so it precedes every resource
       // reference they insert.
-      html => ctx.webServer.renderIndex(html, peer ?? ctx.connection.browserPeer)
-        .replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`),
+      (html) => {
+        const admission = peer === undefined ? ctx.connection.admit(request) : { peer }
+        if ('rejection' in admission) throw new Error('frontend-static: browser identity expired before rendering')
+        return ctx.webServer.renderIndex(html, admission.peer)
+          .replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`)
+      },
     ),
   }), 'frontend-static: fallback seat')
 }

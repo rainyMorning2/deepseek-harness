@@ -16,6 +16,7 @@ import { API_PATH } from './api-path.ts'
 import type { BrowserAuth } from './browser-auth.ts'
 import { Peer } from './peer.ts'
 import type {
+  BrowserIdentityProvider,
   PeerAdmission,
   ConnectionAdmission,
   ConnectionIndexRequest,
@@ -73,6 +74,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
   private readonly peers = new Map<PeerId, PeerRecord>()
   private readonly owner: Context
   private disposed = false
+  private identityProvider: BrowserIdentityProvider | undefined
   private readonly interceptors = new Map<string, ConnectionRpcInterceptor>()
   private readonly fetchRoutes = new Map<string, RegisteredFetchRoute>()
 
@@ -83,11 +85,13 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param ctx - owning Connection plugin context.
    * @param trustedHosts - deployment authorities accepted by the Host/Origin fence.
    * @param browserAuth - process token and persistent browser-session owner.
+   * @param browserAuthentication - built-in owner authentication or a required deployment provider.
    */
   constructor(
     ctx: Context,
     private readonly trustedHosts: readonly string[],
     private readonly browserAuth: BrowserAuth,
+    private readonly browserAuthentication: 'builtin' | 'provider' = 'builtin',
   ) {
     super(ctx, 'connection')
     this.owner = ctx
@@ -99,6 +103,16 @@ export class HostConnectionService extends Service implements HostConnectionHand
       await Promise.all(peers.map(peer => peer.dispose()))
     }, 'client-connection: Peer scopes')
     this.allowsRemoteAuthorities = trustedHosts.some(isRemoteAuthority)
+  }
+
+  /** Install deployment authentication without permitting a fallback to instance-owner credentials. */
+  registerBrowserIdentity(provider: BrowserIdentityProvider): () => Promise<void> {
+    if (this.browserAuthentication !== 'provider') throw new Error('connection: provider authentication is not configured')
+    return this.ctx.effect(() => {
+      if (this.identityProvider !== undefined) throw new Error('connection: browser identity provider already registered')
+      this.identityProvider = provider
+      return () => { this.identityProvider = undefined }
+    }, 'client-connection: browser identity provider')
   }
 
   /** Generic channel registry scoped to the Context reading this service. */
@@ -129,6 +143,10 @@ export class HostConnectionService extends Service implements HostConnectionHand
   admit(request: ConnectionTrustRequest): PeerAdmission {
     if (!this.isTrusted(request)) return { rejection: 403 }
     if (this.disposed) return { rejection: 401 }
+    if (this.browserAuthentication === 'provider') {
+      const peer = this.identityProvider?.authenticate(request)
+      return peer === undefined || peer.signal.aborted ? { rejection: 401 } : { peer }
+    }
     const secure = this.owner.get('webServer')?.protocol === 'https:'
     if (this.browserAuth.isAuthenticated(request, secure)) return { peer: this.browserPeer }
     const id = this.browserAuth.authenticateApi(request, secure)
@@ -178,7 +196,7 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * @param response - response owned to completion.
    */
   authorizeConnect(request: ConnectionIndexRequest, response: ConnectionIndexResponse): void {
-    if (!this.isTrusted(request) || this.disposed) {
+    if (!this.isTrusted(request) || this.disposed || this.browserAuthentication === 'provider') {
       response.writeHead(this.disposed ? 401 : 403)
       response.end(this.disposed ? 'unauthorized' : 'forbidden')
       return
@@ -191,12 +209,23 @@ export class HostConnectionService extends Service implements HostConnectionHand
    * Authenticate an index request; native TLS listeners mint Secure cookies.
    */
   authorizeIndex(request: ConnectionIndexRequest, response: ConnectionIndexResponse): boolean {
+    if (this.browserAuthentication === 'provider') {
+      const admission = this.admit(request)
+      if (!('rejection' in admission)) return true
+      if (admission.rejection === 401 && this.identityProvider !== undefined) {
+        this.identityProvider.unauthorized(request, response)
+      } else {
+        response.writeHead(admission.rejection, { 'cache-control': 'no-store' })
+        response.end('Authentication unavailable')
+      }
+      return false
+    }
     return this.browserAuth.authorizeIndex(request, response, this.ctx.get('webServer')?.protocol === 'https:')
   }
 
   /** Add this process's launch token to the clean application URL. */
   authenticatedUrl(baseUrl: string): string {
-    return this.browserAuth.authenticatedUrl(baseUrl)
+    return this.browserAuthentication === 'provider' ? baseUrl : this.browserAuth.authenticatedUrl(baseUrl)
   }
 
   /**
@@ -217,7 +246,6 @@ export class HostConnectionService extends Service implements HostConnectionHand
         const route = this.fetchRoutes.get(pathname)
         if (route?.methods.has(request.method) === true) {
           // Exact routes bypass Gateway access checks, so only the owner reaches them.
-          // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
           if (peer.principal.kind !== 'owner') return Promise.resolve(new Response('forbidden', { status: 403 }))
           return route.fetch(request)
         }

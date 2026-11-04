@@ -301,7 +301,12 @@ export class SessionController extends TypertRemoteService {
    * @returns the created or reused Session identity and its preset when configured.
    */
   @Remote('create')
-  create(request: SessionCreateRequest): Promise<SessionCreateValue> {
+  async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
+    const policy = this.ctx.get('workspacePathPolicy')
+    if (policy !== undefined && request.workspaceId === undefined) {
+      const cwd = await policy.resolve(request.cwd ?? await policy.defaultDirectory())
+      return this.commands.create({ ...request, cwd })
+    }
     return this.commands.create(request)
   }
 

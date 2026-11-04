@@ -73,6 +73,8 @@ None, as the wire consumer layer moves already-composed messages between browser
 
 None; this package neither assembles nor sends a provider request.
 
+Opt-in `browserAuthentication: provider` requires one `registerBrowserIdentity()` provider. Before registration and after disposal, every browser/API admission stays closed; launch-token login and `/connect` cannot restore owner access. The provider owns credential expiry, persistent login state, login routes and Peer disposal. Index rendering uses the admitted request's Peer. The default `builtin` mode retains instance-owner authentication. `deployment-user` carries only a stable configured user id; RemoteAccess policy must supply its permissions.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>

@@ -997,6 +997,7 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   ConnectionFetchHandler: 'shared Fetch dispatch is owned by packages/client/connection/src/rpc.ts',
   ConnectionRequestRejection: 'transport rejection status is owned by packages/client/connection/src/rpc.ts',
   ConnectionTrustRequest: 'transport authentication input is owned by packages/client/connection/src/rpc.ts',
+  BrowserIdentityProvider: 'deployment browser identity and lifetime are documented in packages/client/connection/README.md',
   PeerAdmission: 'Peer admission outcome is owned by packages/client/connection/src/rpc.ts',
   ConnectionAdmission: 'physical socket admission and release are owned by packages/client/connection/src/rpc.ts',
   PeerScope: 'Peer scope contract is owned by packages/typert/protocol/src/types.ts',

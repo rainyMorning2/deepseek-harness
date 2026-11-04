@@ -57,6 +57,8 @@ None, as Workspace organization is browser and Host control state and registers 
 
 No direct effect; Workspace mutations do not alter model requests.
 
+For a non-owner caller with WorkspacePathPolicy, default initialization creates or reuses that caller's authorized default directory independently of the registry-global first-use marker. Explicit path creation resolves the policy through the invocation Context before delegating to the command queue; resource permissions remain the Gateway's responsibility.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>

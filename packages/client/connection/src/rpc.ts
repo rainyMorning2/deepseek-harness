@@ -3,6 +3,16 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { PeerScope, Principal } from '@deepseek-ai/dsh-typert-protocol'
 
+/** Stable configured deployment account id; never a credential or display name. */
+export type DeploymentUserId = Branded<'deployment-user-id'>
+
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface PrincipalMap {
+    /** An authenticated deployment account subject to RemoteAccess policy. */
+    'deployment-user': { readonly kind: 'deployment-user'; readonly userId: DeploymentUserId }
+  }
+}
+
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
 
@@ -202,6 +212,20 @@ export interface HostConnectionRpc {
   ): () => Promise<void>
 }
 
+/** Deployment-owned browser identity. Implementations own login routes and Peer lifetimes. */
+export interface BrowserIdentityProvider {
+  /** Resolve an unexpired credential; never return the built-in owner as a fallback.
+   * @param request - HTTP or upgrade request headers.
+   * @returns the live authenticated Peer, or undefined when access is denied.
+   */
+  authenticate(request: ConnectionTrustRequest): PeerScope | undefined
+  /** Finish an unauthenticated index request, normally by redirecting to login.
+   * @param request - index request whose identity was not admitted.
+   * @param response - response to complete without serving the index.
+   */
+  unauthorized(request: ConnectionIndexRequest, response: ConnectionIndexResponse): void
+}
+
 /** Host `ctx.connection` members consumed by transport-independent adapters. */
 export interface HostConnectionHandle {
   /** Generic RPC channel registry. */
@@ -210,6 +234,12 @@ export interface HostConnectionHandle {
   readonly fetch: HostConnectionFetch
   /** The owner Peer every authenticated browser connection shares. */
   readonly browserPeer: PeerScope
+
+  /** Register the sole identity provider when configured for provider authentication.
+   * @param provider - deployment credential verifier and login redirect.
+   * @returns disposer; removal keeps authentication closed rather than restoring owner access.
+   */
+  registerBrowserIdentity(provider: BrowserIdentityProvider): () => Promise<void>
 
   /**
    * Whether this deployment accepts authorities beyond loopback: true only

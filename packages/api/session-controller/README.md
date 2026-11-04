@@ -121,6 +121,8 @@ None, as invoked Agent commands own any model-visible effect.
 
 No direct effect; model requests remain owned by the Agent and LLM packages.
 
+Session creation without a Workspace id resolves the optional WorkspacePathPolicy through the caller's invocation Context before delegating to the command helper. This preserves per-user defaults and path grants; Workspace and reused Session ids still require their own Gateway resource grants.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>

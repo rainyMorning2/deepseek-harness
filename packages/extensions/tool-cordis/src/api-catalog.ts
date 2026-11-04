@@ -803,6 +803,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [],
       },
       {
+        signature: 'registerBrowserIdentity(provider: BrowserIdentityProvider): () => Promise<void>',
+        description: 'Register the sole identity provider when configured for provider authentication.',
+        parameters: [{ name: 'provider', description: 'deployment credential verifier and login redirect.' }],
+        returns: 'disposer; removal keeps authentication closed rather than restoring owner access.',
+      },
+      {
         signature: 'readonly allowsRemoteAuthorities: boolean',
         description: 'Whether this deployment accepts authorities beyond loopback: true only when a validated `trustedHosts` entry names a non-loopback hostname.',
         parameters: [],
@@ -2687,7 +2693,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'authorized bounded Session search results.',
       },
       {
-        signature: '@Remote(\'create\') create(request: SessionCreateRequest): Promise<SessionCreateValue>',
+        signature: '@Remote(\'create\') async create(request: SessionCreateRequest): Promise<SessionCreateValue>',
         description: 'Create one ordinary Session for a new conversation, reusing the named blank Session while it is reusable.',
         parameters: [{ name: 'request', description: 'optional blank Session to reuse, location, and Agent preset.' }],
         returns: 'the created or reused Session identity and its preset when configured.',
@@ -4490,7 +4496,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Host service backing the generated `ctx.remote.workspace` namespace.',
     methods: [
       {
-        signature: '@Remote(\'create\') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>',
+        signature: '@Remote(\'create\') async create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>',
         description: 'Create or idempotently resolve one Workspace over an existing directory.',
         parameters: [{ name: 'request', description: 'directory path to register.' }],
         returns: 'the Workspace and whether this call created it.',
@@ -5779,6 +5785,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'BrandedNumber',
     declaration: 'export type BrandedNumber<B extends string> = number & {\n    readonly [BRAND]: B;\n};',
+  },
+  {
+    name: 'BrowserIdentityProvider',
+    declaration: 'export interface BrowserIdentityProvider {\n    authenticate(request: ConnectionTrustRequest): PeerScope | undefined;\n    unauthorized(request: ConnectionIndexRequest, response: ConnectionIndexResponse): void;\n}',
   },
   {
     name: 'BrowserUseProviderName',

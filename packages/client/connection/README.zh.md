@@ -73,6 +73,8 @@ HTTPS cookie 名称与签名 audience 包含 `https:` scheme，因此即使 host
 
 无；该包既不组装也不发送提供方请求。
 
+显式设置`browserAuthentication: provider`后必须注册一个`registerBrowserIdentity()`提供方。注册前及卸载后浏览器/API入口保持关闭；启动token及`/connect`不能恢复owner访问。提供方负责凭证过期、持久登录状态、登录路由和Peer释放。首页渲染使用实际请求获准的Peer。默认`builtin`模式保留实例owner认证。`deployment-user`只携带稳定的配置用户标识，其权限必须由RemoteAccess策略提供。
+
 ## 已知限制与暂缓事项
 
 <a id="known-limitations-and-deferred-work"></a>
