@@ -128,15 +128,16 @@ interface RemoteEventClient {
   readonly queue: RemoteEventQueue
   readonly signal: AbortSignal
   readonly deliveries: Map<RemoteEventId, PendingRemoteEvent>
-  /** The stream's Peer principal: only the owner answers scoped waterfalls and receives every broadcast. */
+  /** The stream's Peer principal: the owner receives every broadcast without resource authorization. */
   readonly principal: Principal
-  /** Only owner streams receive scoped waterfalls they could answer; other Peers receive admitted broadcasts only. */
-  readonly answers: boolean
+  /** Owner authorization bypass; non-owner interactions require per-event resource authorization. */
+  readonly isOwner: boolean
 }
 
 interface PendingRemoteEvent {
   readonly id: RemoteEventId
   readonly source: TypertRemoteEventInvocation
+  readonly resources: readonly RemoteAccessResource[]
   readonly frame: RemoteEventInvocationFrame
   readonly deliveries: Set<RemoteEventClient>
   releaseContext: () => void
@@ -325,12 +326,12 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   /**
-   * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
+   * Check for an active owner Client event stream with unrestricted interaction access.
    * @returns whether an owner stream is open and has not been cancelled.
    */
   hasLiveClient(): boolean {
     for (const client of this.remoteEventClients.values()) {
-      if (client.answers && !client.signal.aborted) return true
+      if (client.isOwner && !client.signal.aborted) return true
     }
     return false
   }
@@ -498,10 +499,6 @@ export class TypertGatewayService extends Service implements TypertGateway {
       try {
         assertPeerLive(peer, endpoint)
         requireInteractions(peer, endpoint)
-        // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-        if (peer.principal.kind !== 'owner') {
-          throw new TypertGatewayError('gateway/invocation-unavailable', endpoint, 'only owner Peers answer forwarded Remote events')
-        }
         const result = parseRemoteEventResultPayload(payload)
         const client = this.remoteEventClients.get(result.clientId)
         if (client === undefined) {
@@ -581,12 +578,10 @@ export class TypertGatewayService extends Service implements TypertGateway {
       deliveries: new Map(),
       principal: peer.principal,
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- other packages merge non-owner kinds into PrincipalMap.
-      answers: peer.principal.kind === 'owner',
+      isOwner: peer.principal.kind === 'owner',
     }
     this.remoteEventClients.set(clientId, client)
-    if (client.answers) {
-      for (const pending of this.pendingRemoteEvents.values()) this.deliverRemoteEvent(pending, client)
-    }
+    for (const pending of this.pendingRemoteEvents.values()) this.deliverRemoteEvent(pending, client)
     try {
       yield { ...REMOTE_EVENT_STREAM_READY, clientId, host: registration.host }
       yield* client.queue.iterate(lifetime)
@@ -622,7 +617,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
     let resolved = false
     let resources: readonly RemoteAccessResource[] | undefined
     for (const client of this.remoteEventClients.values()) {
-      if (!client.answers) {
+      if (!client.isOwner) {
         // A non-owner receives the whole notification or nothing: its resources decide, payloads are never trimmed,
         // and a notification with invalid resources reaches no non-owner.
         if (!resolved) {
@@ -673,6 +668,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       const pending: PendingRemoteEvent = {
         id,
         source,
+        resources: (source.resources ?? []).map(resource => ({ ...resource })),
         frame: {
           type: 'waterfall',
           event: source.event,
@@ -691,7 +687,7 @@ export class TypertGatewayService extends Service implements TypertGateway {
       if ([...signals].some(signal => signal.aborted)) abort()
       else {
         for (const client of this.remoteEventClients.values()) {
-          if (client.answers) this.deliverRemoteEvent(pending, client)
+          this.deliverRemoteEvent(pending, client)
         }
       }
     } catch (error) {
@@ -700,9 +696,20 @@ export class TypertGatewayService extends Service implements TypertGateway {
   }
 
   private deliverRemoteEvent(pending: PendingRemoteEvent, client: RemoteEventClient): void {
+    if (!this.canAnswerRemoteEvent(pending, client)) return
     pending.deliveries.add(client)
     client.deliveries.set(pending.id, pending)
     client.queue.push(pending.frame)
+  }
+
+  private canAnswerRemoteEvent(pending: PendingRemoteEvent, client: RemoteEventClient): boolean {
+    if (client.signal.aborted || client.peer.signal.aborted || client.peer.interactions !== 'answer') return false
+    if (client.isOwner) return true
+    return pending.resources.length > 0 && this.ctx.remoteAccess.decide({
+      principal: client.principal,
+      action: `event:${pending.frame.event}`,
+      resources: pending.resources,
+    }).kind === 'allow'
   }
 
   private receiveRemoteEventResult(
@@ -713,6 +720,10 @@ export class TypertGatewayService extends Service implements TypertGateway {
     // Settlement and Client replacement may race the result request. Results
     // from a completed event or a superseded delivery are idempotent no-ops.
     if (pending === undefined || !pending.deliveries.has(client)) return
+    if (!this.canAnswerRemoteEvent(pending, client)) {
+      throw new TypertGatewayError('gateway/interactions-forbidden', REMOTE_EVENT_RESULT_ENDPOINT,
+        'Remote event answer is not authorized')
+    }
     this.removeRemoteEventDelivery(pending, client)
     if (result.outcome.kind === 'result') {
       this.settleRemoteEvent(pending, {

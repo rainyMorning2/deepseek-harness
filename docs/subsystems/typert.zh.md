@@ -440,7 +440,7 @@ interface TypertGateway {
   /** Carrier adapter shared by WebSocket and in-process transports. */
   readonly wireStream: TypertGatewayWireStream
   /**
-   * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
+   * Check for an active owner Client event stream with unrestricted interaction access.
    * @returns whether an owner stream is open and has not been cancelled.
    */
   hasLiveClient(): boolean
@@ -661,7 +661,7 @@ Resolve strict generated definitions or conservative SRC markers against current
 
 ```ts cordis-catalog
 /**
- * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
+ * Check for an active owner Client event stream with unrestricted interaction access.
  * @returns whether an owner stream is open and has not been cancelled.
  */
 hasLiveClient(): boolean

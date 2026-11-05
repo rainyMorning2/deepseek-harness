@@ -4,7 +4,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { PeerScope, RemoteUplinkWindow, TypertResourceReader } from '@deepseek-ai/dsh-typert-protocol'
+import type { PeerScope, RemoteAccessResource, RemoteUplinkWindow, TypertResourceReader } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteEventAgentId, RemoteEventHostInfo } from './stream-protocol.ts'
 
 /** One Remote method request after a carrier has decoded its envelope. */
@@ -67,6 +67,8 @@ export interface TypertRemoteEventInvocation {
   readonly event: string
   /** Sole request argument before the waterfall's `next()` callback. */
   readonly request: object
+  /** Trusted application resources; absent or empty keeps the interaction owner-only. */
+  readonly resources?: readonly RemoteAccessResource[]
   readonly context: TypertRemoteEventContext
   /** Resume the source's Cordis listener with a Client result or `next()`. */
   readonly resolve: (outcome: TypertRemoteEventOutcome) => void
@@ -156,7 +158,7 @@ export interface TypertGateway {
   readonly wireStream: TypertGatewayWireStream
 
   /**
-   * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
+   * Check for an active owner Client event stream with unrestricted interaction access.
    * @returns whether an owner stream is open and has not been cancelled.
    */
   hasLiveClient(): boolean

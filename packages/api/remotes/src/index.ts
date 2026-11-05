@@ -73,6 +73,7 @@ function remoteEventSource(ctx: Context): TypertRemoteEventSource {
           request,
           { value: agent.ctx, subject: agent, agentId: agent.id },
           next,
+          [{ kind: 'session', id: agent.session.id }],
         )
       }) as never)
     })
@@ -140,12 +141,14 @@ function forwardWaterfall(
   request: object,
   context: TypertRemoteEventInvocation['context'],
   next: () => unknown,
+  resources: NonNullable<TypertRemoteEventInvocation['resources']>,
 ): Promise<unknown> {
   const settled = Promise.withResolvers<unknown>()
   const dispatch: TypertRemoteEventInvocation = {
     event,
     request,
     context,
+    resources,
     resolve: (outcome: TypertRemoteEventOutcome) => {
       if (outcome.kind === 'result') {
         settled.resolve(outcome.value)

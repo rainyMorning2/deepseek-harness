@@ -65,7 +65,7 @@ const frame = (id: string) => ({ kind: 'test-frame', id }) as const
 const FIXTURE_ACTIONS: readonly RemoteAccessAction[] = [
   'accessFixture/open', 'accessFixture/read', 'accessFixture/byAgent', 'accessFixture/byLookup',
   'accessFixture/byLookupAndOption', 'accessFixture/byList', 'accessFixture/scoped', 'accessFixture/scopedOnDesk',
-  'accessFixture/scopedByReader', 'accessFixture/annotate', 'accessFixture/bySession', 'absentAccess/read', 'event:fixture/notice', 'event:fixture/shelf',
+  'accessFixture/scopedByReader', 'accessFixture/annotate', 'accessFixture/bySession', 'absentAccess/read', 'event:fixture/notice', 'event:fixture/shelf', 'event:fixture/ask',
 ]
 
 function role<K extends RemoteAccessResourceKind>(resource: K): RemoteAccessRole<K> {
@@ -714,7 +714,7 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     expect(ctx.typertGateway.hasLiveClient()).toBe(false)
   })
 
-  it('delivers only allowed broadcasts and no answerable waterfall to a non-owner, and refuses its results', async () => {
+  it('delivers only allowed broadcasts and no answerable waterfall to a non-owner, and ignores undelivered results', async () => {
     const { ctx, hold } = await setup({ connection: true })
     hold(shelf('s1'))
     const decide = vi.spyOn(RemoteAccessService.prototype, 'decide')
@@ -774,11 +774,55 @@ describe('Gateway forwarded events for non-owner Peers', () => {
       }),
     }), guest)
     expect(await refused.json()).toMatchObject({
-      result: { ok: false, error: { code: 'gateway/invocation-unavailable', details: { endpoint: '$events/result' } } },
+      result: { ok: true },
     })
     abort.abort()
     await guestEvents.return?.()
     await ownerEvents.return?.()
+  })
+
+  it('authorizes scoped delivery and answers using current resource permissions', async () => {
+    const { ctx, hold } = await setup({ connection: true })
+    hold(shelf('s1'))
+    const push = eventSource(ctx)
+    const guest = ctx.connection.createPeer({ principal: GUEST })
+    const abort = new AbortController()
+    const open = async () => (await ctx.typertGateway.wireStream.open(
+      '$events', { args: {} }, (async function* () {})(), guest, abort.signal,
+    ))[Symbol.asyncIterator]()
+    const stream = await open()
+    const ready = await stream.next()
+    const subject = {}
+    const settled = vi.fn()
+    for (const id of ['s2', 's1']) push({
+      event: 'fixture/ask', request: { agent: subject, question: id },
+      context: { value: ctx.extend({}), subject, agentId: 'agent-1' },
+      resources: [shelf(id)], resolve: settled, reject: settled,
+    })
+    const delivery = await stream.next()
+    expect(delivery.value).toMatchObject({ type: 'waterfall', request: { question: 's1' } })
+    const clientId = Reflect.get(ready.value as object, 'clientId')
+    const eventId = Reflect.get(delivery.value as object, 'eventId')
+    const answer = async () => {
+      const response = await ctx.connection.createSharedFetchHandler('/api').fetch(new Request('http://host/api/$events/result', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'answer', method: '$events/result',
+          payload: { args: { clientId, eventId, outcome: { kind: 'result', value: 'approved' } } } }),
+      }), guest)
+      return response.json()
+    }
+    hold()
+    expect(await answer()).toMatchObject({ result: { ok: false, error: { code: 'gateway/interactions-forbidden' } } })
+    expect(settled).not.toHaveBeenCalled()
+    hold(shelf('s1'))
+    const replay = await open()
+    await replay.next()
+    expect((await replay.next()).value).toMatchObject({ eventId, request: { question: 's1' } })
+    expect(await answer()).toMatchObject({ result: { ok: true } })
+    expect(settled).toHaveBeenCalledWith({ kind: 'result', value: 'approved' })
+    abort.abort()
+    await stream.return?.()
+    await replay.return?.()
   })
 
   it('delivers a global event that a global role lists, and drops one whose resource is missing without asking remoteAccess', async () => {

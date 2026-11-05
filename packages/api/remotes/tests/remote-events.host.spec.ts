@@ -210,7 +210,7 @@ describe('Remote event Host source', () => {
     const abort = new AbortController()
     const iterator = sourceOf(gateway)(abort.signal)[Symbol.asyncIterator]()
     const agentCtx = ctx.extend()
-    const agent = { id: 'agent-1', ctx: agentCtx }
+    const agent = { id: 'agent-1', session: { id: 'session-1' }, ctx: agentCtx }
     const target = scopeTarget(ctx, agent)
     const request = { questions: [], agent }
 
@@ -275,7 +275,7 @@ describe('Remote event Host source', () => {
     const abort = new AbortController()
     const iterator = sourceOf(gateway)(abort.signal)[Symbol.asyncIterator]()
     const delivery = iterator.next()
-    const agent = { id: 'agent-1', ctx: ctx.extend() }
+    const agent = { id: 'agent-1', session: { id: 'session-1' }, ctx: ctx.extend() }
     const reason = new Error('forwarded event source removed')
     const pending = waterfallRaw(
       ctx,

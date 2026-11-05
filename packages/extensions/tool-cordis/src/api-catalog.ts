@@ -4223,7 +4223,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'hasLiveClient(): boolean',
-        description: 'Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.',
+        description: 'Check for an active owner Client event stream with unrestricted interaction access.',
         parameters: [],
         returns: 'whether an owner stream is open and has not been cancelled.',
       },
@@ -9824,7 +9824,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TypertRemoteEventInvocation',
-    declaration: 'export interface TypertRemoteEventInvocation {\n    readonly event: string;\n    readonly request: object;\n    readonly context: TypertRemoteEventContext;\n    readonly resolve: (outcome: TypertRemoteEventOutcome) => void;\n    readonly reject: (reason: unknown) => void;\n}',
+    declaration: 'export interface TypertRemoteEventInvocation {\n    readonly event: string;\n    readonly request: object;\n    readonly resources?: readonly RemoteAccessResource[];\n    readonly context: TypertRemoteEventContext;\n    readonly resolve: (outcome: TypertRemoteEventOutcome) => void;\n    readonly reject: (reason: unknown) => void;\n}',
   },
   {
     name: 'TypertRemoteEventOutcome',
